@@ -1,4 +1,4 @@
-name: Gerar APK Android
+name: Gerar APK Android 3.0
 
 on:
   workflow_dispatch:
@@ -10,9 +10,8 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-
     steps:
-      - name: Baixar arquivos do repositório
+      - name: Baixar repositório
         uses: actions/checkout@v4
 
       - name: Configurar Java 17
@@ -31,62 +30,50 @@ jobs:
         with:
           gradle-version: '8.11.1'
 
-      - name: Extrair e localizar projeto
+      - name: Localizar o projeto 3.0
         shell: bash
         run: |
           set -euo pipefail
-
-          ZIP="Imperio_da_TV_Premium_v2_Projeto_APK.zip"
-
-          if [ ! -f "$ZIP" ]; then
-            echo "::error::Envie $ZIP para a raiz do repositório, sem extrair."
+          ZIP="Imperio_da_TV_Premium_v3_Projeto_APK.zip"
+          if [ -f "$ZIP" ]; then
+            mkdir -p projeto-v3
+            unzip -q "$ZIP" -d projeto-v3
+            SETTINGS=$(find projeto-v3 -type f \( -name settings.gradle -o -name settings.gradle.kts \) -print -quit)
+          elif [ -f app/src/main/assets/index.html ] && [ -f settings.gradle ]; then
+            SETTINGS="./settings.gradle"
+          else
+            echo "::error::Envie $ZIP à raiz do repositório, sem extrair nem renomear."
             exit 1
           fi
-
-          mkdir -p projeto
-          unzip -q "$ZIP" -d projeto
-
-          SETTINGS=$(find projeto -type f \
-            \( -name settings.gradle -o -name settings.gradle.kts \) \
-            -print -quit)
-
           if [ -z "$SETTINGS" ]; then
-            echo "::error::Projeto Gradle não encontrado dentro do ZIP."
+            echo "::error::Projeto Gradle não encontrado."
             exit 1
           fi
+          echo "PROJECT_DIR=$(dirname "$SETTINGS")" >> "$GITHUB_ENV"
 
-          PROJECT_DIR=$(dirname "$SETTINGS")
-          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-          echo "Projeto localizado em: $PROJECT_DIR"
+      - name: Verificar lógica do jogo
+        shell: bash
+        run: |
+          cd "$PROJECT_DIR"
+          node tests/test-game.cjs
 
       - name: Compilar APK
         shell: bash
         run: |
-          set -euo pipefail
           cd "$PROJECT_DIR"
           gradle --no-daemon --stacktrace assembleDebug
 
-      - name: Preparar arquivo para download
+      - name: Preparar download
         shell: bash
         run: |
           set -euo pipefail
-
-          APK=$(find "$PROJECT_DIR" -type f \
-            -path '*/build/outputs/apk/debug/*.apk' \
-            -print -quit)
-
-          if [ -z "$APK" ]; then
-            echo "::error::A compilação não produziu um APK de debug."
-            exit 1
-          fi
-
           mkdir -p apk-download
-          cp "$APK" apk-download/Imperio-da-TV.apk
+          cp "$PROJECT_DIR/app/build/outputs/apk/debug/app-debug.apk" apk-download/Imperio-da-TV-3.0.apk
 
       - name: Disponibilizar APK
         uses: actions/upload-artifact@v4
         with:
-          name: Imperio-TV-APK
-          path: apk-download/Imperio-da-TV.apk
+          name: Imperio-TV-3.0-APK
+          path: apk-download/Imperio-da-TV-3.0.apk
           if-no-files-found: error
           retention-days: 30
