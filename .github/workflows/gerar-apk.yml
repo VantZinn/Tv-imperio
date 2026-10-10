@@ -8,44 +8,176 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Baixar arquivos do repositório
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-java@v4
+      - name: Configurar Java 17
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
-          
-          
-      -  uses: android-actions/setup-android@v4
+
+      - name: Configurar Android SDK
+        uses: android-actions/setup-android@v4
         with:
           packages: 'platform-tools'
 
-      - uses: gradle/actions/setup-gradle@v4
+      - name: Configurar Gradle
+        uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
 
       - name: Extrair e localizar projeto
         shell: bash
         run: |
-          unzip -q Imperio_da_TV_Premium_v2_Projeto_APK.zip -d projeto
-          SETTINGS=$(find projeto -type f \( -name settings.gradle -o -name settings.gradle.kts \) -print -quit)
-          if [ -z "$SETTINGS" ]; then
-            echo "Projeto Gradle não encontrado dentro do ZIP."
+          set -euo pipefail
+
+          ZIP="Imperio_da_TV_Premium_v2_Projeto_APK.zip"
+
+          if [ ! -f "$ZIP" ]; then
+            echo "::error::Envie $ZIP para a raiz do repositório, sem extrair."
             exit 1
           fi
-          echo "PROJECT_DIR=$(dirname "$SETTINGS")" >> "$GITHUB_ENV"
+
+          mkdir -p projeto
+          unzip -q "$ZIP" -d projeto
+
+          SETTINGS=$(find projeto -type f \
+            \( -name settings.gradle -o -name settings.gradle.kts \) \
+            -print -quit)
+
+          if [ -z "$SETTINGS" ]; then
+            echo "::error::Projeto Gradle não encontrado dentro do ZIP."
+            exit 1
+          fi
+
+          PROJECT_DIR=$(dirname "$SETTINGS")
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "Projeto localizado em: $PROJECT_DIR"
 
       - name: Compilar APK
         shell: bash
         run: |
+          set -euo pipefail
           cd "$PROJECT_DIR"
-          gradle --no-daemon assembleDebug
+          gradle --no-daemon --stacktrace assembleDebug
 
-      - uses: actions/upload-artifact@v4
+      - name: Preparar arquivo para download
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          APK=$(find "$PROJECT_DIR" -type f \
+            -path '*/build/outputs/apk/debug/*.apk' \
+            -print -quit)
+
+          if [ -z "$APK" ]; then
+            echo "::error::A compilação não produziu um APK de debug."
+            exit 1
+          fi
+
+          mkdir -p apk-download
+          cp "$APK" apk-download/Imperio-da-TV.apk
+
+      - name: Disponibilizar APK
+        uses: actions/upload-artifact@v4
         with:
           name: Imperio-TV-APK
-          path: projeto/**/build/outputs/apk/debug/*.apk
+          path: apk-download/Imperio-da-TV.apk
           if-no-files-found: error
+          retention-days: 30name: Gerar APK Android
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Baixar arquivos do repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Configurar Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools'
+
+      - name: Configurar Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Extrair e localizar projeto
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ZIP="Imperio_da_TV_Premium_v2_Projeto_APK.zip"
+
+          if [ ! -f "$ZIP" ]; then
+            echo "::error::Envie $ZIP para a raiz do repositório, sem extrair."
+            exit 1
+          fi
+
+          mkdir -p projeto
+          unzip -q "$ZIP" -d projeto
+
+          SETTINGS=$(find projeto -type f \
+            \( -name settings.gradle -o -name settings.gradle.kts \) \
+            -print -quit)
+
+          if [ -z "$SETTINGS" ]; then
+            echo "::error::Projeto Gradle não encontrado dentro do ZIP."
+            exit 1
+          fi
+
+          PROJECT_DIR=$(dirname "$SETTINGS")
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "Projeto localizado em: $PROJECT_DIR"
+
+      - name: Compilar APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PROJECT_DIR"
+          gradle --no-daemon --stacktrace assembleDebug
+
+      - name: Preparar arquivo para download
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          APK=$(find "$PROJECT_DIR" -type f \
+            -path '*/build/outputs/apk/debug/*.apk' \
+            -print -quit)
+
+          if [ -z "$APK" ]; then
+            echo "::error::A compilação não produziu um APK de debug."
+            exit 1
+          fi
+
+          mkdir -p apk-download
+          cp "$APK" apk-download/Imperio-da-TV.apk
+
+      - name: Disponibilizar APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Imperio-TV-APK
+          path: apk-download/Imperio-da-TV.apk
+          if-no-files-found: error
+          retention-days: 30
