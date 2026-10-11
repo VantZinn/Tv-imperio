@@ -1,4 +1,4 @@
-name: Gerar APK Android 3.0
+name: Gerar APK TV Empire Beta
 
 on:
   workflow_dispatch:
@@ -12,10 +12,16 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Baixar repositório
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+
+      - name: Configurar Node 24 para os testes
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
 
       - name: Configurar Java 17
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '17'
@@ -23,44 +29,44 @@ jobs:
       - name: Configurar Android SDK
         uses: android-actions/setup-android@v4
         with:
-          packages: 'platform-tools'
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
 
       - name: Configurar Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
         with:
           gradle-version: '8.11.1'
 
-      - name: Localizar o projeto 3.0
+      - name: Localizar o projeto beta
         shell: bash
         run: |
           set -euo pipefail
-          ZIP="Imperio_da_TV_Premium_v3_Projeto_APK.zip"
-          if [ -f "$ZIP" ]; then
-            mkdir -p projeto-v3
-            unzip -q "$ZIP" -d projeto-v3
-            SETTINGS=$(find projeto-v3 -type f \( -name settings.gradle -o -name settings.gradle.kts \) -print -quit)
+          BETA_ZIP="TV_Empire_Beta_Projeto_APK.zip"
+          if [ -f "$BETA_ZIP" ]; then
+            mkdir -p projeto-beta
+            unzip -q "$BETA_ZIP" -d projeto-beta
+            BETA_SETTINGS=$(find projeto-beta -type f \( -name settings.gradle -o -name settings.gradle.kts \) -print -quit)
           elif [ -f app/src/main/assets/index.html ] && [ -f settings.gradle ]; then
-            SETTINGS="./settings.gradle"
+            BETA_SETTINGS="./settings.gradle"
           else
-            echo "::error::Envie $ZIP à raiz do repositório, sem extrair nem renomear."
+            echo "::error::Envie $BETA_ZIP à raiz do repositório, sem extrair nem renomear."
             exit 1
           fi
-          if [ -z "$SETTINGS" ]; then
+          if [ -z "$BETA_SETTINGS" ]; then
             echo "::error::Projeto Gradle não encontrado."
             exit 1
           fi
-          echo "PROJECT_DIR=$(dirname "$SETTINGS")" >> "$GITHUB_ENV"
+          echo "BETA_PROJECT_DIR=$(dirname "$BETA_SETTINGS")" >> "$GITHUB_ENV"
 
       - name: Verificar lógica do jogo
         shell: bash
         run: |
-          cd "$PROJECT_DIR"
+          cd "$BETA_PROJECT_DIR"
           node tests/test-game.cjs
 
       - name: Compilar APK
         shell: bash
         run: |
-          cd "$PROJECT_DIR"
+          cd "$BETA_PROJECT_DIR"
           gradle --no-daemon --stacktrace assembleDebug
 
       - name: Preparar download
@@ -68,12 +74,12 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p apk-download
-          cp "$PROJECT_DIR/app/build/outputs/apk/debug/app-debug.apk" apk-download/Imperio-da-TV-3.0.apk
+          cp "$BETA_PROJECT_DIR/app/build/outputs/apk/debug/app-debug.apk" apk-download/TV-Empire-Beta.apk
 
-      - name: Disponibilizar APK
-        uses: actions/upload-artifact@v4
+      - name: Disponibilizar APK beta
+        uses: actions/upload-artifact@v7
         with:
-          name: Imperio-TV-3.0-APK
-          path: apk-download/Imperio-da-TV-3.0.apk
+          name: TV-Empire-Beta-APK
+          path: apk-download/TV-Empire-Beta.apk
           if-no-files-found: error
           retention-days: 30
