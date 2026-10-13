@@ -65,13 +65,41 @@ jobs:
           python3 build-app.py
           node --check tests/script-check.cjs
           node tests/test-game.cjs
-          node --test server/tests/server.test.mjs
+          node --test server/tests/*.test.mjs
+          npm ci --prefix tests
+          node tests/test-startup.cjs
 
       - name: Compilar APK
         shell: bash
         run: |
           cd "$BETA_PROJECT_DIR"
           gradle --no-daemon --stacktrace assembleDebug
+
+      - name: Habilitar aceleração do emulador
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Abrir o APK e verificar se continua funcionando
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-save -camera-back none
+          script: python3 "$BETA_PROJECT_DIR/tests/test-apk-startup.py" "$BETA_PROJECT_DIR/app/build/outputs/apk/debug/app-debug.apk" --output "$GITHUB_WORKSPACE/apk-startup-diagnostics"
+
+      - name: Guardar diagnóstico da abertura
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: Empire-TV-Diagnostico-Abertura
+          path: apk-startup-diagnostics/
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Preparar download
         shell: bash
