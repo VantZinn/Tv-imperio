@@ -1,0 +1,466 @@
+{
+  "genres": [
+    "Drama",
+    "Comédia",
+    "Suspense",
+    "Ficção científica",
+    "Ação",
+    "Romance",
+    "Terror",
+    "Policial",
+    "Documentário",
+    "Reality",
+    "Fantasia",
+    "Animação"
+  ],
+  "networks": [
+    {
+      "id": "aurora",
+      "name": "Rede Aurora",
+      "type": "Aberta",
+      "reach": 1.24,
+      "fee": 25000,
+      "focus": [
+        "Drama",
+        "Comédia",
+        "Reality"
+      ],
+      "threshold": 60
+    },
+    {
+      "id": "atlas",
+      "name": "Atlas Max",
+      "type": "Cabo",
+      "reach": 0.94,
+      "fee": 36000,
+      "focus": [
+        "Suspense",
+        "Ação",
+        "Policial"
+      ],
+      "threshold": 70
+    },
+    {
+      "id": "nova",
+      "name": "Nova+ Streaming",
+      "type": "Streaming",
+      "reach": 1.12,
+      "fee": 48000,
+      "focus": [
+        "Ficção científica",
+        "Terror",
+        "Fantasia"
+      ],
+      "threshold": 73
+    },
+    {
+      "id": "luz",
+      "name": "Canal Horizonte",
+      "type": "Aberta",
+      "reach": 0.89,
+      "fee": 22000,
+      "focus": [
+        "Documentário",
+        "Romance",
+        "Animação"
+      ],
+      "threshold": 56
+    },
+    {
+      "id": "nf",
+      "name": "Netflix",
+      "focus": [
+        "Drama",
+        "Ficção científica",
+        "Suspense"
+      ],
+      "threshold": 86,
+      "reach": 2.7
+    },
+    {
+      "id": "pv",
+      "name": "Praimi Video",
+      "focus": [
+        "Ação",
+        "Drama",
+        "Comédia"
+      ],
+      "threshold": 82,
+      "reach": 2.45
+    },
+    {
+      "id": "hbm",
+      "name": "HBO Máximo",
+      "focus": [
+        "Drama",
+        "Policial",
+        "Fantasia"
+      ],
+      "threshold": 91,
+      "reach": 2.15
+    },
+    {
+      "id": "dp",
+      "name": "Disnei+",
+      "focus": [
+        "Animação",
+        "Fantasia",
+        "Ação"
+      ],
+      "threshold": 85,
+      "reach": 2.35
+    },
+    {
+      "id": "apple",
+      "name": "Maçã TV+",
+      "focus": [
+        "Drama",
+        "Ficção científica",
+        "Documentário"
+      ],
+      "threshold": 90,
+      "reach": 1.75
+    },
+    {
+      "id": "hulu",
+      "name": "Hululu",
+      "focus": [
+        "Comédia",
+        "Drama",
+        "Suspense"
+      ],
+      "threshold": 78,
+      "reach": 1.8
+    },
+    {
+      "id": "para",
+      "name": "Paramonte+",
+      "focus": [
+        "Ação",
+        "Policial",
+        "Animação"
+      ],
+      "threshold": 77,
+      "reach": 1.8
+    },
+    {
+      "id": "mubi",
+      "name": "Mubi Mundo",
+      "focus": [
+        "Drama",
+        "Documentário",
+        "Romance"
+      ],
+      "threshold": 87,
+      "reach": 0.92
+    },
+    {
+      "id": "cr",
+      "name": "Crunchi Rolo",
+      "focus": [
+        "Animação",
+        "Fantasia",
+        "Ação"
+      ],
+      "threshold": 78,
+      "reach": 1.45
+    },
+    {
+      "id": "peac",
+      "name": "Pavão Play",
+      "focus": [
+        "Comédia",
+        "Reality",
+        "Policial"
+      ],
+      "threshold": 75,
+      "reach": 1.6
+    },
+    {
+      "id": "gp",
+      "name": "Globão Play",
+      "focus": [
+        "Drama",
+        "Romance",
+        "Documentário"
+      ],
+      "threshold": 73,
+      "reach": 1.7
+    },
+    {
+      "id": "tc",
+      "name": "Telecine Play",
+      "focus": [
+        "Drama",
+        "Ação",
+        "Suspense"
+      ],
+      "threshold": 72,
+      "reach": 1.3
+    },
+    {
+      "id": "plu",
+      "name": "Plutão TV",
+      "focus": [
+        "Comédia",
+        "Ação",
+        "Documentário"
+      ],
+      "threshold": 61,
+      "reach": 1.15
+    },
+    {
+      "id": "viki",
+      "name": "Viki Vê",
+      "focus": [
+        "Romance",
+        "Drama",
+        "Comédia"
+      ],
+      "threshold": 70,
+      "reach": 1.05
+    },
+    {
+      "id": "starz",
+      "name": "Starz Estelar",
+      "focus": [
+        "Drama",
+        "Ação",
+        "Policial"
+      ],
+      "threshold": 74,
+      "reach": 1.1
+    },
+    {
+      "id": "tnt",
+      "name": "TNT Séries",
+      "focus": [
+        "Drama",
+        "Policial",
+        "Suspense"
+      ],
+      "threshold": 70,
+      "reach": 1.15
+    },
+    {
+      "id": "axn",
+      "name": "AXN Flux",
+      "focus": [
+        "Ação",
+        "Policial",
+        "Suspense"
+      ],
+      "threshold": 69,
+      "reach": 1.02
+    },
+    {
+      "id": "disc",
+      "name": "Canal Discovery",
+      "focus": [
+        "Documentário",
+        "Reality",
+        "Ação"
+      ],
+      "threshold": 75,
+      "reach": 1.16
+    },
+    {
+      "id": "nat",
+      "name": "NatGeo Mundo",
+      "focus": [
+        "Documentário",
+        "Ficção científica",
+        "Drama"
+      ],
+      "threshold": 85,
+      "reach": 1.12
+    },
+    {
+      "id": "cart",
+      "name": "Cartum Clube",
+      "focus": [
+        "Animação",
+        "Comédia",
+        "Fantasia"
+      ],
+      "threshold": 74,
+      "reach": 1.18
+    },
+    {
+      "id": "gloob",
+      "name": "Gloob Kids",
+      "focus": [
+        "Animação",
+        "Fantasia",
+        "Comédia"
+      ],
+      "threshold": 66,
+      "reach": 1.02
+    },
+    {
+      "id": "cc",
+      "name": "Comedy Clube",
+      "focus": [
+        "Comédia",
+        "Reality",
+        "Animação"
+      ],
+      "threshold": 70,
+      "reach": 1
+    },
+    {
+      "id": "sy",
+      "name": "Canal Syfy",
+      "focus": [
+        "Ficção científica",
+        "Terror",
+        "Fantasia"
+      ],
+      "threshold": 74,
+      "reach": 1.03
+    },
+    {
+      "id": "amc",
+      "name": "AMC Prisma",
+      "focus": [
+        "Drama",
+        "Terror",
+        "Policial"
+      ],
+      "threshold": 83,
+      "reach": 1.18
+    },
+    {
+      "id": "ae",
+      "name": "Canal A&E",
+      "focus": [
+        "Policial",
+        "Documentário",
+        "Reality"
+      ],
+      "threshold": 64,
+      "reach": 0.96
+    },
+    {
+      "id": "glob",
+      "name": "Globão TV",
+      "focus": [
+        "Drama",
+        "Romance",
+        "Comédia"
+      ],
+      "threshold": 84,
+      "reach": 2.1
+    },
+    {
+      "id": "sbt",
+      "name": "SBTela",
+      "focus": [
+        "Comédia",
+        "Romance",
+        "Reality"
+      ],
+      "threshold": 70,
+      "reach": 1.75
+    },
+    {
+      "id": "rec",
+      "name": "Recorda TV",
+      "focus": [
+        "Drama",
+        "Ação",
+        "Documentário"
+      ],
+      "threshold": 73,
+      "reach": 1.65
+    },
+    {
+      "id": "band",
+      "name": "Bandô",
+      "focus": [
+        "Reality",
+        "Documentário",
+        "Comédia"
+      ],
+      "threshold": 62,
+      "reach": 1.25
+    },
+    {
+      "id": "cult",
+      "name": "Cultura Viva",
+      "focus": [
+        "Documentário",
+        "Animação",
+        "Drama"
+      ],
+      "threshold": 66,
+      "reach": 0.85
+    },
+    {
+      "id": "br",
+      "name": "TV Brasilis",
+      "focus": [
+        "Documentário",
+        "Drama",
+        "Animação"
+      ],
+      "threshold": 61,
+      "reach": 0.78
+    },
+    {
+      "id": "nt",
+      "name": "Rede Novo Tempo",
+      "focus": [
+        "Drama",
+        "Documentário",
+        "Romance"
+      ],
+      "threshold": 56,
+      "reach": 0.7
+    },
+    {
+      "id": "viva",
+      "name": "Rede Viva",
+      "focus": [
+        "Drama",
+        "Romance",
+        "Comédia"
+      ],
+      "threshold": 63,
+      "reach": 0.88
+    },
+    {
+      "id": "local",
+      "name": "Tela Local",
+      "focus": [
+        "Drama",
+        "Comédia",
+        "Documentário"
+      ],
+      "threshold": 38,
+      "reach": 0.48
+    },
+    {
+      "id": "fest",
+      "name": "Festival Play",
+      "focus": [
+        "Drama",
+        "Documentário",
+        "Terror"
+      ],
+      "threshold": 52,
+      "reach": 0.65
+    },
+    {
+      "id": "bairro",
+      "name": "Cine Bairro",
+      "focus": [
+        "Comédia",
+        "Romance",
+        "Ação"
+      ],
+      "threshold": 43,
+      "reach": 0.55
+    }
+  ]
+}
