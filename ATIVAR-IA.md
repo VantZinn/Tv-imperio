@@ -25,6 +25,8 @@ Na hospedagem, configure estas variáveis no painel de Environment/Secrets:
 | AI_MODEL | gemini-3.5-flash-lite |
 | AI_GLOBAL_DAILY_LIMIT | 20 |
 | AI_USER_DAILY_LIMIT | 16 |
+| AI_BACKGROUND_DAILY_LIMIT | 4 |
+| AI_TIMEOUT_MS | 60000 |
 | SOCIAL_INTERVAL_MINUTES | 360 |
 | WORLD_INTERVAL_MINUTES | 720 |
 
@@ -37,7 +39,7 @@ npm start
 
 Não envie **.env** ao GitHub. O processo inicia na porta configurada por PORT, ou 3000. Publique com HTTPS para conectar o APK. Configure **DATA_DIR** para um diretório persistente quando sua hospedagem oferecer esse recurso; o arquivo **empire.sqlite** guarda contas, sessões, análises e comentários.
 
-O projeto completo continua com a mesma versão do jogo. **O APK que já tem Universo online é compatível com este servidor; não precisa recompilar só para trocar a IA.** Na próxima compilação, a identificação dos pareceres também acompanha o provedor informado pelo servidor.
+O projeto completo continua com a mesma versão do jogo. O APK que já tem Universo online continua compatível com as rotas do servidor. Para a nova apresentação dos limites e para continuar automaticamente negociação, financiamento e produção com análise local durante falhas, compile o pacote atualizado, com versionCode 10004.
 
 ## 3. Hospedagem gratuita para experimentar
 
@@ -73,13 +75,15 @@ A análise influencia a criatividade, os comentários, o prazo e a negociação.
 
 ## 5. Usar a cota com cuidado
 
-Este perfil limita o serviço a **20 chamadas globais por dia** e **16 por conta por dia**. Esses valores são limites do jogo, não uma promessa de cota concedida pelo Google. A contagem do Gemini segue o dia no fuso do Pacífico, como a API.
+Este perfil limita o serviço a **20 chamadas globais por dia**, **16 análises por conta por dia** e **4 chamadas automáticas por dia**. A geração automática usa a cota global, mas não a cota pessoal de análises. Tentativas enviadas ao provedor são contabilizadas mesmo quando falham; chamadas bloqueadas antes do envio não consomem cota. Esses valores são limites do jogo, não uma promessa de cota concedida pelo Google. A contagem do Gemini segue o dia no fuso do Pacífico, como a API. Em Configurações → Universo online, o APK atualizado mostra os limites locais e o horário de renovação.
 
 O servidor reaproveita pareceres da mesma versão da ideia. Chamadas idênticas simultâneas são agrupadas. Uma análise de outro modelo ou provedor não é apresentada como se tivesse sido feita pelo Gemini.
 
 Por padrão, os comentários automáticos são gerados a cada **6 horas por campanha ativa** e as propostas concorrentes a cada **12 horas**. O app busca o conteúdo guardado a cada minuto enquanto conectado; sincronizar não significa fazer uma nova chamada de IA a cada minuto. Os intervalos maiores reservam parte da cota para analisar suas ideias. A campanha mais recente de cada conta recebe os lotes; após sete dias sem acesso, os lotes personalizados ficam suspensos até o jogador voltar.
 
-Ao receber erro **429**, o serviço respeita uma pausa, persiste essa pausa e evita consumir chamadas tentando novamente a cada minuto. Quando a cota termina, informa o limite sem fingir que criou uma análise. Pareceres já guardados continuam acessíveis. Para jogar com a avaliação por regras durante essa pausa, use **Configurações → Universo online → Desconectar**; o progresso é mantido e você poderá conectar novamente depois.
+Ao receber erro **429**, o serviço distingue pausa por minuto de cota diária quando o provedor informa essa distinção. A pausa diária segue a próxima meia-noite do Pacífico; uma pausa temporária respeita o prazo de nova tentativa informado. Erros de conexão, indisponibilidade e tempo excedido também iniciam uma espera persistida e crescente. O worker respeita o intervalo de comentários/concorrentes após falhar, impedindo que repita falhas a cada minuto.
+
+Quando a cota termina, o serviço informa o motivo e o horário sem fingir que criou uma análise. Pareceres já guardados continuam acessíveis. No APK atualizado, negociação, financiamento e produção usam a avaliação local por regras durante falhas temporárias, preservando o funcionamento do jogo. O botão de analisar com IA continua informando a pausa; a aba Parecer mostra uma análise local identificada quando não há parecer de IA dessa versão. Em um APK anterior, use **Configurações → Universo online → Desconectar** para continuar por regras; você poderá conectar novamente depois.
 
 Nunca há troca automática para um serviço pago. Para uma instalação anterior que já usava OpenAI, configure **AI_PROVIDER=openai**, **OPENAI_API_KEY** e **AI_MODEL** explicitamente. Essa opção pode gerar custos e não é necessária para o Gemini gratuito.
 
