@@ -19,6 +19,7 @@ export function createStore(path){
  if(path!==':memory:')mkdirSync(dirname(path),{recursive:true});
  const db=new DatabaseSync(path);db.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;');
  db.exec('CREATE TABLE IF NOT EXISTS users(id TEXT PRIMARY KEY,name TEXT UNIQUE NOT NULL,salt TEXT NOT NULL,password TEXT NOT NULL,created INTEGER NOT NULL); CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES users(id),expires INTEGER NOT NULL); CREATE TABLE IF NOT EXISTS cache(key TEXT PRIMARY KEY,user_id TEXT NOT NULL,payload TEXT NOT NULL,created INTEGER NOT NULL); CREATE TABLE IF NOT EXISTS snapshots(user_id TEXT NOT NULL,campaign TEXT NOT NULL,payload TEXT NOT NULL,seen INTEGER NOT NULL,last_social INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(user_id,campaign)); CREATE TABLE IF NOT EXISTS posts(id INTEGER PRIMARY KEY AUTOINCREMENT,owner TEXT NOT NULL,campaign TEXT NOT NULL,text_hash TEXT NOT NULL,payload TEXT NOT NULL,created INTEGER NOT NULL,UNIQUE(owner,campaign,text_hash)); CREATE TABLE IF NOT EXISTS works(id TEXT PRIMARY KEY,title_hash TEXT UNIQUE NOT NULL,payload TEXT NOT NULL,created INTEGER NOT NULL); CREATE TABLE IF NOT EXISTS usage(day TEXT NOT NULL,scope TEXT NOT NULL,count INTEGER NOT NULL,PRIMARY KEY(day,scope)); CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY,value TEXT NOT NULL); CREATE TABLE IF NOT EXISTS purchased_wallets(user_id TEXT PRIMARY KEY REFERENCES users(id),balance INTEGER NOT NULL DEFAULT 0 CHECK(balance>=0));');
+ db.exec('CREATE TABLE IF NOT EXISTS device_accounts(device_id TEXT PRIMARY KEY,user_id TEXT UNIQUE NOT NULL REFERENCES users(id),secret_hash TEXT NOT NULL,created INTEGER NOT NULL);');
  return db;
 }
 export function normalizeProject(raw){
@@ -36,7 +37,8 @@ export async function generateAIJSON(kind,payload,schema,options={}){
 // Compatibility for tests and existing explicitly configured OpenAI installations.
 export function openAIJSON(kind,payload,schema,options={}){return generateAIJSON(kind,payload,schema,{...options,provider:'openai'});}
 
-export function createEngine({db,provider=generateAIJSON,aiEnabled=Boolean(getAIConfig().apiKey),aiProvider=getAIConfig().provider,aiModel=getAIConfig().model,dayTimeZone='UTC',clock=()=>Date.now(),globalLimit=144,userLimit=48,backgroundLimit=Math.min(24,Math.floor(globalLimit/4)),socialMinutes=60,worldMinutes=360}){
+// Zero disables only player/global daily caps; backgroundLimit=0 disables automatic generation.
+export function createEngine({db,provider=generateAIJSON,aiEnabled=Boolean(getAIConfig().apiKey),aiProvider=getAIConfig().provider,aiModel=getAIConfig().model,dayTimeZone='UTC',clock=()=>Date.now(),globalLimit=0,userLimit=0,backgroundLimit=globalLimit>0?Math.min(24,Math.floor(globalLimit/4)):24,socialMinutes=60,worldMinutes=360}){
  const inFlight=new Map(),dayFormatter=new Intl.DateTimeFormat('en-CA',{timeZone:dayTimeZone,year:'numeric',month:'2-digit',day:'2-digit'});let ticking=false,cachedDay='',resetAt=0;
  const setting=key=>db.prepare('SELECT value FROM settings WHERE key=?').get(key)?.value;
  const setSetting=(key,value)=>db.prepare('INSERT OR REPLACE INTO settings(key,value) VALUES(?,?)').run(key,String(value));
@@ -47,14 +49,14 @@ export function createEngine({db,provider=generateAIJSON,aiEnabled=Boolean(getAI
   let code='',message='IA configurada; cada geração será confirmada ao receber uma resposta válida.',retryAt=0;
   if(!aiEnabled){code='AI_NOT_CONFIGURED';message='A IA ainda não foi configurada no servidor.';}
   else if(until>now){code=setting('ai_cooldown_code')||'AI_PROVIDER_RATE_LIMIT';message=setting('ai_cooldown_message')||'A IA está em pausa; o jogo pode continuar com análise local.';retryAt=until;}
-  else if(global>=globalLimit){code='AI_SERVER_DAILY_LIMIT';message='O limite diário de chamadas configurado no servidor foi atingido.';retryAt=p.resetAt;}
-  else if(user&&personal>=userLimit){code='AI_ACCOUNT_DAILY_LIMIT';message='O limite diário de análises desta conta foi atingido.';retryAt=p.resetAt;}
-  return{configured:aiEnabled,available:!code,state:code?(aiEnabled?'paused':'offline'):'ready',code,message,retryAt,retryAfter:retryAt?Math.max(1,Math.ceil((retryAt-now)/1000)):0,quotas:{global:{used:global,limit:globalLimit},account:user?{used:personal,limit:userLimit}:null,automatic:{used:automatic,limit:backgroundLimit},resetAt:p.resetAt}};
+  else if(globalLimit>0&&global>=globalLimit){code='AI_SERVER_DAILY_LIMIT';message='O limite diário de chamadas configurado no servidor foi atingido.';retryAt=p.resetAt;}
+  else if(user&&userLimit>0&&personal>=userLimit){code='AI_ACCOUNT_DAILY_LIMIT';message='O limite diário de análises desta conta foi atingido.';retryAt=p.resetAt;}
+  return{configured:aiEnabled,available:!code,state:code?(aiEnabled?'paused':'offline'):'ready',code,message,retryAt,retryAfter:retryAt?Math.max(1,Math.ceil((retryAt-now)/1000)):0,quotas:{global:{used:global,limit:globalLimit||null,unlimited:globalLimit===0},account:user?{used:personal,limit:userLimit||null,unlimited:userLimit===0}:null,automatic:{used:automatic,limit:backgroundLimit,unlimited:false,disabled:backgroundLimit===0},resetAt:p.resetAt}};
  }
  function reserve(user,kind){
-  const p=period(),scopes=[{name:'global',limit:globalLimit,code:'AI_SERVER_DAILY_LIMIT',message:'O limite diário de chamadas configurado no servidor foi atingido.'},kind==='review'?{name:user,limit:userLimit,code:'AI_ACCOUNT_DAILY_LIMIT',message:'O limite diário de análises desta conta foi atingido.'}:{name:'background',limit:backgroundLimit,code:'AI_BACKGROUND_DAILY_LIMIT',message:'A geração automática usou sua parcela diária. As chamadas restantes são reservadas às análises dos jogadores.'}];
+  const p=period(),scopes=[{name:'global',limit:globalLimit,unlimited:globalLimit===0,code:'AI_SERVER_DAILY_LIMIT',message:'O limite diário de chamadas configurado no servidor foi atingido.'},kind==='review'?{name:user,limit:userLimit,unlimited:userLimit===0,code:'AI_ACCOUNT_DAILY_LIMIT',message:'O limite diário de análises desta conta foi atingido.'}:{name:'background',limit:backgroundLimit,unlimited:false,code:'AI_BACKGROUND_DAILY_LIMIT',message:'A geração automática usou sua parcela diária. As chamadas restantes são reservadas às análises dos jogadores.'}];
   db.exec('BEGIN IMMEDIATE');
-  try{for(const scope of scopes){if(used(scope.name)>=scope.limit)throw failure(429,scope.message,{code:scope.code,retryAt:p.resetAt,retryAfter:Math.max(1,Math.ceil((p.resetAt-clock())/1000))});}
+  try{for(const scope of scopes){if(!scope.unlimited&&used(scope.name)>=scope.limit)throw failure(429,scope.message,{code:scope.code,retryAt:p.resetAt,retryAfter:Math.max(1,Math.ceil((p.resetAt-clock())/1000))});}
    for(const scope of scopes)db.prepare('INSERT INTO usage(day,scope,count) VALUES(?,?,1) ON CONFLICT(day,scope) DO UPDATE SET count=count+1').run(p.day,scope.name);
    db.exec('COMMIT');
   }catch(e){db.exec('ROLLBACK');throw e;}
@@ -144,12 +146,14 @@ export function createApp(options={}){
  const config=getAIConfig();
  const free=config.provider==='gemini';
  const positive=(name,fallback)=>Number.isSafeInteger(Number(process.env[name]))&&Number(process.env[name])>0?Number(process.env[name]):fallback;
- const globalLimit=positive('AI_GLOBAL_DAILY_LIMIT',free?20:144);
+ const nonnegative=(name,fallback)=>process.env[name]?.trim()!==''&&Number.isSafeInteger(Number(process.env[name]))&&Number(process.env[name])>=0?Number(process.env[name]):fallback;
+ const globalLimit=nonnegative('AI_GLOBAL_DAILY_LIMIT',free?0:144);
  const backgroundValue=process.env.AI_BACKGROUND_DAILY_LIMIT===undefined?(free?4:24):Number(process.env.AI_BACKGROUND_DAILY_LIMIT);
  const backgroundLimit=Number.isSafeInteger(backgroundValue)&&backgroundValue>=0?backgroundValue:(free?4:24);
- const engine=options.engine||createEngine({db,dayTimeZone:config.dayTimeZone,globalLimit,userLimit:positive('AI_USER_DAILY_LIMIT',free?16:48),backgroundLimit:Math.min(Math.max(0,globalLimit-1),backgroundLimit),socialMinutes:Math.max(5,positive('SOCIAL_INTERVAL_MINUTES',free?360:60)),worldMinutes:Math.max(30,positive('WORLD_INTERVAL_MINUTES',free?720:360))});
+ const engine=options.engine||createEngine({db,dayTimeZone:config.dayTimeZone,globalLimit,userLimit:nonnegative('AI_USER_DAILY_LIMIT',free?0:48),backgroundLimit:globalLimit>0?Math.min(Math.max(0,globalLimit-1),backgroundLimit):backgroundLimit,socialMinutes:Math.max(5,positive('SOCIAL_INTERVAL_MINUTES',free?360:60)),worldMinutes:Math.max(30,positive('WORLD_INTERVAL_MINUTES',free?720:360))});
  const origins=new Set(options.origins||String(process.env.ALLOWED_ORIGINS||'https://appassets.androidplatform.net').split(',').map(x=>x.trim()));
  const rate=new Map();let workerTimer;
+ function session(user){const token=randomBytes(32).toString('hex'),expiresAt=Date.now()+7*86400000;db.prepare('INSERT INTO sessions(token,user_id,expires) VALUES(?,?,?)').run(digest(token),user,expiresAt);return{token,expiresAt,aiAvailable:engine.aiEnabled,aiStatus:engine.status(user),aiProvider:engine.aiProvider,aiModel:engine.aiModel,paymentsEnabled:false};}
  function throttle(key,max=90){const now=Date.now(),bucket=rate.get(key)||{count:0,reset:now+60000};if(now>=bucket.reset){bucket.count=0;bucket.reset=now+60000;}bucket.count++;rate.set(key,bucket);if(rate.size>10000)for(const[k,v]of rate)if(v.reset<now)rate.delete(k);if(bucket.count>max)throw failure(429,'Muitas solicitações. Aguarde um minuto.');}
  async function readBody(req){let bytes=0,chunks=[];for await(const c of req){bytes+=c.length;if(bytes>180000)throw failure(413,'Conteúdo muito grande.');chunks.push(c);}let value;try{value=JSON.parse(Buffer.concat(chunks).toString('utf8')||'{}');}catch{throw failure(400,'JSON inválido.');}if(!value||typeof value!=='object'||Array.isArray(value))throw failure(400,'JSON inválido.');return value;}
  function auth(req){const token=(req.headers.authorization||'').replace(/^Bearer /,'');if(token.length!==64)throw failure(401,'Entre novamente no universo.');const row=db.prepare('SELECT user_id FROM sessions WHERE token=? AND expires>?').get(digest(token),Date.now());if(!row)throw failure(401,'Sessão expirada. Entre novamente no universo.');return row.user_id;}
@@ -163,6 +167,24 @@ export function createApp(options={}){
    if(req.method==='GET'&&route==='/health'){const state=engine.status();send(200,{game:'Empire TV',version:'1.0.0.1 BETA',aiAvailable:engine.aiEnabled,aiStatus:{configured:state.configured,available:state.available,state:state.state,code:state.code,message:state.message,retryAt:state.retryAt},aiProvider:engine.aiProvider,aiModel:engine.aiModel,paymentsEnabled:false});return;}
    if(req.method!=='POST')throw failure(404,'Rota não encontrada.');
    const body=await readBody(req);
+   if(route==='/v1/auth/device'){
+    throttle('device:'+ip,12);
+    const {deviceId,deviceSecret}=body;
+    if(typeof deviceId!=='string'||typeof deviceSecret!=='string'||!/^[a-f0-9]{64}$/.test(deviceId)||!/^[a-f0-9]{64}$/.test(deviceSecret))throw failure(400,'Identificação automática inválida.');
+    const secretHash=digest(deviceSecret);let device=db.prepare('SELECT user_id,secret_hash FROM device_accounts WHERE device_id=?').get(deviceId);
+    if(device){if(!timingSafeEqual(Buffer.from(device.secret_hash,'hex'),Buffer.from(secretHash,'hex')))throw failure(401,'Identificação automática não autorizada.');}
+    else{
+     if(process.env.REGISTRATION_ENABLED==='false')throw failure(403,'Cadastro fechado pelo responsável.');
+     const id=randomBytes(16).toString('hex'),now=Date.now();db.exec('BEGIN IMMEDIATE');
+     try{
+      db.prepare('INSERT INTO users(id,name,salt,password,created) VALUES(?,?,?,?,?)').run(id,'auto_'+randomBytes(8).toString('hex'),randomBytes(16).toString('hex'),randomBytes(64).toString('hex'),now);
+      db.prepare('INSERT INTO purchased_wallets(user_id,balance) VALUES(?,0)').run(id);
+      db.prepare('INSERT INTO device_accounts(device_id,user_id,secret_hash,created) VALUES(?,?,?,?)').run(deviceId,id,secretHash,now);
+      db.exec('COMMIT');device={user_id:id};
+     }catch(e){db.exec('ROLLBACK');throw e;}
+    }
+    send(200,{...session(device.user_id),accountKind:'device'});return;
+   }
    if(route==='/v1/auth/register'||route==='/v1/auth/login'){
     throttle(ip+':auth',12);const name=limitText(body.username,22).toLowerCase(),password=body.password;
     if(!/^[a-z0-9_.-]{3,22}$/.test(name)||typeof password!=='string'||password.length<8||password.length>128)throw failure(400,'Use um usuário de 3 a 22 caracteres e senha de 8 a 128 caracteres.');
@@ -177,8 +199,7 @@ export function createApp(options={}){
      const test=await scrypt(password,user?.salt||'not-a-user',64);
      if(!user||!timingSafeEqual(test,Buffer.from(user.password,'hex')))throw failure(401,'Usuário ou senha incorretos.');
     }
-    const token=randomBytes(32).toString('hex');db.prepare('INSERT INTO sessions(token,user_id,expires) VALUES(?,?,?)').run(digest(token),user.id,Date.now()+7*86400000);
-    send(200,{token,aiAvailable:engine.aiEnabled,aiStatus:engine.status(user.id),aiProvider:engine.aiProvider,aiModel:engine.aiModel,paymentsEnabled:false});return;
+    send(200,session(user.id));return;
    }
    const user=auth(req);throttle(user,60);
    if(route==='/v1/analyse'){send(200,await engine.analyse(user,body));return;}

@@ -23,8 +23,8 @@ Na hospedagem, configure estas variáveis no painel de Environment/Secrets:
 | AI_PROVIDER | gemini |
 | GEMINI_API_KEY | sua chave gratuita |
 | AI_MODEL | gemini-3.5-flash-lite |
-| AI_GLOBAL_DAILY_LIMIT | 20 |
-| AI_USER_DAILY_LIMIT | 16 |
+| AI_GLOBAL_DAILY_LIMIT | 0 · sem limite diário interno |
+| AI_USER_DAILY_LIMIT | 0 · sem limite diário interno |
 | AI_BACKGROUND_DAILY_LIMIT | 4 |
 | AI_TIMEOUT_MS | 60000 |
 | SOCIAL_INTERVAL_MINUTES | 360 |
@@ -39,7 +39,9 @@ npm start
 
 Não envie **.env** ao GitHub. O processo inicia na porta configurada por PORT, ou 3000. Publique com HTTPS para conectar o APK. Configure **DATA_DIR** para um diretório persistente quando sua hospedagem oferecer esse recurso; o arquivo **empire.sqlite** guarda contas, sessões, análises e comentários.
 
-O projeto completo continua com a mesma versão do jogo. O APK que já tem Universo online continua compatível com as rotas do servidor. Para a nova apresentação dos limites e para continuar automaticamente negociação, financiamento e produção com análise local durante falhas, compile o pacote atualizado, com versionCode 10004.
+O projeto mantém a versão 1.0.0.1 BETA e usa versionCode 10006. O APK conecta automaticamente a https://tv-imperio.onrender.com ao entrar na campanha. O jogador não precisa informar URL ou criar outra conta. Configurações → Universo online permite escolher somente o modo local ou uma conexão personalizada opcional. A chave Gemini fica no servidor.
+
+Se os limites 20 e 16 já existem no Render, altere **ambos para 0**. Uma variável existente tem prioridade sobre o padrão do código. O servidor anterior não interpreta zero como ilimitado; publique esta atualização junto com a mudança das variáveis.
 
 ## 3. Hospedagem gratuita para experimentar
 
@@ -66,16 +68,18 @@ Exponha por HTTPS. GitHub Pages não executa este serviço Node.js.
 
 1. Abra **https://SEU-SERVIDOR/health**. Deve informar **aiProvider: gemini** e **aiAvailable: true**.
 2. Esse indicador confirma que há uma chave configurada. Uma análise real é necessária para verificar acesso ao modelo e cota; o endpoint não faz uma chamada paga ou gratuita apenas para verificar a saúde do serviço.
-3. Na campanha, abra **Configurações → Universo online**.
-4. Cole a URL HTTPS do servidor **sem /health**.
-5. Escolha **Criar conta**, defina usuário e senha do universo e toque em **Conectar**. Essa conta é independente da conta local do aparelho.
+3. Abra uma campanha no APK atualizado; identificação e conexão começam automaticamente.
+4. Em **Configurações → Universo online**, confira o estado. Durante uma falha de conexão, o jogo continua localmente e tenta conectar depois.
+5. Para uma conta manual anterior, abra **Conexão personalizada · opcional** e entre com suas credenciais. A identificação automática mantém cada perfil separado e renova sua sessão quando necessário.
 6. Abra uma obra no catálogo, entre em **Parecer** e toque em **Analisar ideia com IA**.
 
 A análise influencia a criatividade, os comentários, o prazo e a negociação. Audiência, verba e MF continuam calculadas pelo jogo. O modelo não pode conceder dinheiro ou alterar o saldo.
 
 ## 5. Usar a cota com cuidado
 
-Este perfil limita o serviço a **20 chamadas globais por dia**, **16 análises por conta por dia** e **4 chamadas automáticas por dia**. A geração automática usa a cota global, mas não a cota pessoal de análises. Tentativas enviadas ao provedor são contabilizadas mesmo quando falham; chamadas bloqueadas antes do envio não consomem cota. Esses valores são limites do jogo, não uma promessa de cota concedida pelo Google. A contagem do Gemini segue o dia no fuso do Pacífico, como a API. Em Configurações → Universo online, o APK atualizado mostra os limites locais e o horário de renovação.
+Este perfil remove os limites diários internos de análises e de chamadas globais. O zero em **AI_GLOBAL_DAILY_LIMIT** e **AI_USER_DAILY_LIMIT** significa sem limite interno. A geração automática mantém até **4 chamadas por dia**; nessa variável, zero desativa os lotes. As cotas do Google continuam válidas por projeto, compartilhadas entre os jogadores. Uma chave nova do mesmo projeto não reinicia a cota.
+
+Tentativas enviadas, inclusive falhas, continuam contadas. Chamadas bloqueadas antes do envio não gastam cota. A contagem do Gemini segue o fuso do Pacífico. O APK mostra **Sem limite interno**, uso automático e motivo de uma pausa do provedor. Essa indicação não significa Gemini ilimitado.
 
 O servidor reaproveita pareceres da mesma versão da ideia. Chamadas idênticas simultâneas são agrupadas. Uma análise de outro modelo ou provedor não é apresentada como se tivesse sido feita pelo Gemini.
 
