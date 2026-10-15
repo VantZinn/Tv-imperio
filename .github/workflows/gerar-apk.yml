@@ -1,117 +1,272 @@
-name: Gerar APK Empire TV
-
-on:
+# Empire TV 10008 — instalador para envio pelo celular
+# 1. Envie este arquivo para .github/workflows/ no seu repositório.
+# 2. Publique uma Release com o ZIP original Empire_TV_10008_Atualizacao_GitHub.zip.
+# 3. Actions > Atualizar Empire TV e gerar APK > Run workflow.
+# A execução instala os arquivos web no repositório e compila o APK atualizado.
+# O ZIP grande fica na Release. Nenhuma chave de IA é necessária neste arquivo.
+# make_play_bundle é opcional e exige sua chave própria já configurada.
+name: Atualizar Empire TV e gerar APK
+'on':
   workflow_dispatch:
-
+    inputs:
+      install_site:
+        description: Instalar também o jogo web no repositório para o Render
+        required: false
+        default: true
+        type: boolean
+      make_play_bundle:
+        description: Gerar AAB com sua chave de upload já configurada
+        required: false
+        default: false
+        type: boolean
 permissions:
-  contents: read
-
+  contents: write
+concurrency:
+  group: empire-tv-install-${{ github.ref }}
+  cancel-in-progress: false
+env:
+  EMPIRE_PACKAGE_NAME: Empire_TV_10008_Atualizacao_GitHub.zip
+  EMPIRE_PACKAGE_BYTES: '428544873'
+  EMPIRE_PACKAGE_SHA256: 3d82d8f3c812d2cb42f579fc1b3045e6278b555c88bbc3f969ecb28296bcdfab
 jobs:
   build:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
-      - name: Baixar repositório
-        uses: actions/checkout@v7
-
-      - name: Configurar Node 24 para os testes
-        uses: actions/setup-node@v7
-        with:
-          node-version: '24'
-          package-manager-cache: false
-
-      - name: Configurar Java 17
-        uses: actions/setup-java@v6
-        with:
-          distribution: temurin
-          java-version: '17'
-
-      - name: Configurar Android SDK
-        uses: android-actions/setup-android@v4
-        with:
-          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
-
-      - name: Configurar Gradle
-        uses: gradle/actions/setup-gradle@v6
-        with:
-          gradle-version: '8.11.1'
-
-      - name: Localizar o projeto beta
-        shell: bash
-        run: |
-          set -euo pipefail
-          BETA_ZIP="Empire_TV_1.0.0.1_BETA_Projeto_APK.zip"
-          if [ -f "$BETA_ZIP" ]; then
-            BETA_STAGE="$RUNNER_TEMP/empire-tv-project"
-            mkdir -p "$BETA_STAGE"
-            unzip -oq "$BETA_ZIP" -d "$BETA_STAGE"
-            BETA_SETTINGS=$(find "$BETA_STAGE" -type f \( -name settings.gradle -o -name settings.gradle.kts \) -print -quit)
-          elif [ -f app/src/main/assets/index.html ] && [ -f settings.gradle ]; then
-            BETA_SETTINGS="./settings.gradle"
-          else
-            echo "::error::Envie $BETA_ZIP à raiz do repositório, sem extrair nem renomear."
-            exit 1
-          fi
-          if [ -z "$BETA_SETTINGS" ]; then
-            echo "::error::Projeto Gradle não encontrado."
-            exit 1
-          fi
-          echo "BETA_PROJECT_DIR=$(dirname "$BETA_SETTINGS")" >> "$GITHUB_ENV"
-
-      - name: Verificar lógica do jogo
-        shell: bash
-        run: |
-          cd "$BETA_PROJECT_DIR"
-          python3 build-app.py
-          node --check tests/script-check.cjs
-          node tests/test-game.cjs
-          node --test server/tests/*.test.mjs
-          npm ci --prefix tests
-          node tests/test-startup.cjs
-
-      - name: Compilar APK
-        shell: bash
-        run: |
-          cd "$BETA_PROJECT_DIR"
-          gradle --no-daemon --stacktrace assembleDebug
-
-      - name: Habilitar aceleração do emulador
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-
-      - name: Abrir o APK e verificar se continua funcionando
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 35
-          target: google_apis
-          arch: x86_64
-          profile: pixel_2
-          disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-save -camera-back none
-          script: python3 "$BETA_PROJECT_DIR/tests/test-apk-startup.py" "$BETA_PROJECT_DIR/app/build/outputs/apk/debug/app-debug.apk" --output "$GITHUB_WORKSPACE/apk-startup-diagnostics"
-
-      - name: Guardar diagnóstico da abertura
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: Empire-TV-Diagnostico-Abertura
-          path: apk-startup-diagnostics/
-          if-no-files-found: ignore
-          retention-days: 7
-
-      - name: Preparar download
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p apk-download
-          cp "$BETA_PROJECT_DIR/app/build/outputs/apk/debug/app-debug.apk" apk-download/Empire-TV-1.0.0.1-BETA.apk
-
-      - name: Disponibilizar APK Empire TV
-        uses: actions/upload-artifact@v7
-        with:
-          name: Empire-TV-1.0.0.1-BETA-APK
-          path: apk-download/Empire-TV-1.0.0.1-BETA.apk
-          if-no-files-found: error
-          retention-days: 30
+    - name: Baixar repositório
+      uses: actions/checkout@v7
+      with:
+        ref: ${{ github.ref_name }}
+    - name: Baixar o ZIP anexado à Release
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |-
+        python3 - <<'PY'
+        import json, os, pathlib, re, subprocess
+        repo = os.environ['GITHUB_REPOSITORY']
+        name = os.environ['EMPIRE_PACKAGE_NAME']
+        destination = pathlib.Path(os.environ['RUNNER_TEMP']) / 'empire-release-input'
+        destination.mkdir(parents=True, exist_ok=True)
+        selected = None
+        for page in range(1, 11):
+            response = subprocess.run(['gh', 'api', f'repos/{repo}/releases?per_page=100&page={page}'], check=True, capture_output=True, text=True)
+            releases = json.loads(response.stdout)
+            for release in releases:
+                if release.get('draft'):
+                    continue
+                assets = [asset for asset in release.get('assets', []) if asset.get('name') == name and asset.get('state') == 'uploaded']
+                if assets:
+                    selected = (release, assets[0])
+                    break
+            if selected or len(releases) < 100:
+                break
+        if not selected:
+            raise SystemExit('Publique uma Release deste repositório com o anexo ' + name + ' (o ZIP original, sem extrair) e execute novamente.')
+        release, asset = selected
+        tag = release['tag_name']
+        if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._/-]*', tag):
+            raise SystemExit('Use uma tag simples para a Release, por exemplo: empire-tv-10008.')
+        if asset.get('size') != int(os.environ['EMPIRE_PACKAGE_BYTES']):
+            raise SystemExit('O anexo tem tamanho diferente do pacote completo. Aguarde o envio terminar ou envie o ZIP original novamente.')
+        subprocess.run(['gh', 'release', 'download', tag, '--repo', repo, '--pattern', name, '--dir', str(destination), '--clobber'], check=True)
+        package = destination / name
+        if not package.is_file():
+            raise SystemExit('O pacote não foi baixado. Confira o anexo da Release.')
+        with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as env_file:
+            env_file.write('EMPIRE_PACKAGE_PATH=' + str(package) + '\n')
+        print('Pacote encontrado na Release: ' + tag)
+        PY
+    - name: Conferir o pacote e preparar o jogo
+      shell: bash
+      run: |-
+        python3 - <<'PY'
+        import hashlib, os, pathlib, stat, subprocess, tempfile, zipfile
+        package = pathlib.Path(os.environ['EMPIRE_PACKAGE_PATH'])
+        if package.stat().st_size != int(os.environ['EMPIRE_PACKAGE_BYTES']):
+            raise SystemExit('O download ficou incompleto. Execute novamente este workflow.')
+        digest = hashlib.sha256()
+        with package.open('rb') as stream:
+            while block := stream.read(1024 * 1024):
+                digest.update(block)
+        if digest.hexdigest() != os.environ['EMPIRE_PACKAGE_SHA256']:
+            raise SystemExit('O ZIP não corresponde ao pacote 10008 verificado. Anexe o arquivo original desta atualização.')
+        temp_root = pathlib.Path(os.environ['RUNNER_TEMP'])
+        update = pathlib.Path(tempfile.mkdtemp(prefix='empire-update-', dir=temp_root))
+        def extract_checked(archive_path, destination):
+            with zipfile.ZipFile(archive_path) as archive:
+                for info in archive.infolist():
+                    relative = pathlib.PurePosixPath(info.filename)
+                    if relative.is_absolute() or '..' in relative.parts or '\\' in info.filename or stat.S_ISLNK(info.external_attr >> 16):
+                        raise SystemExit('O arquivo contém um caminho inválido.')
+                if archive.testzip() is not None:
+                    raise SystemExit('O pacote contém um arquivo incompleto.')
+                archive.extractall(destination)
+        extract_checked(package, update)
+        html = (update / 'public/index.html').read_text(encoding='utf-8')
+        if 'EMPIRE_REVISION=10008' not in html or 'const VANT_TOPICS=[' not in html:
+            raise SystemExit('A página do jogo não contém os tutoriais esperados.')
+        native_archive = temp_root / 'Empire_TV_10008_Projeto_APK.zip'
+        subprocess.run(['python3', str(update / 'empire-project/assemble.py'), '--output', str(native_archive)], check=True)
+        native_project = pathlib.Path(tempfile.mkdtemp(prefix='empire-android-', dir=temp_root))
+        extract_checked(native_archive, native_project)
+        if not (native_project / 'settings.gradle').is_file():
+            raise SystemExit('O projeto Android não está completo.')
+        native_html = (native_project / 'app/src/main/assets/index.html').read_text(encoding='utf-8')
+        if 'EMPIRE_REVISION=10008' not in native_html or 'const VANT_TOPICS=[' not in native_html:
+            raise SystemExit('O projeto Android não contém os tutoriais esperados.')
+        with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as env_file:
+            env_file.write('EMPIRE_UPDATE_DIR=' + str(update) + '\n')
+            env_file.write('BETA_PROJECT_DIR=' + str(native_project) + '\n')
+        print('Integridade conferida. Jogo web e projeto Android: revisão 10008 com tutoriais de Vant.')
+        PY
+    - name: Configurar Node 24 para os testes
+      uses: actions/setup-node@v7
+      with:
+        node-version: '24'
+        package-manager-cache: false
+    - name: Verificar servidor antes de instalar
+      working-directory: ${{ env.EMPIRE_UPDATE_DIR }}
+      run: node --test tests/*.test.mjs
+    - name: Instalar o site e enviar os arquivos ao GitHub
+      if: inputs.install_site
+      shell: bash
+      run: |-
+        python3 - <<'PY'
+        import os, pathlib, shutil, subprocess
+        source = pathlib.Path(os.environ['EMPIRE_UPDATE_DIR'])
+        workspace = pathlib.Path(os.environ['GITHUB_WORKSPACE']).resolve()
+        files = ['.dockerignore', '.env.example', '.gitignore', 'ARTE-E-AUDIO.md', 'ATIVAR-IA.md',
+                 'CORRIGIR-IA.md', 'Dockerfile', 'LEIA-ME-GITHUB.txt', 'MEGA-ATUALIZACAO.md',
+                 'README.md', 'TUTORIAIS-DE-VANT.md', 'VERIFICACAO-GITHUB.json', 'ai-provider.mjs',
+                 'catalog.json', 'package.json', 'schemas.mjs', 'server.mjs', 'static-web.mjs']
+        targets = []
+        for relative in files:
+            targets.append(source / relative)
+        for folder in ['public', 'tests']:
+            targets.extend(path for path in (source / folder).rglob('*') if path.is_file())
+        for path in targets:
+            relative = path.relative_to(source)
+            destination = workspace / relative
+            if not destination.resolve().is_relative_to(workspace):
+                raise SystemExit('Um destino aponta para fora do repositório: ' + str(relative))
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            if relative.as_posix() == '.gitignore' and destination.is_file():
+                old = destination.read_text(encoding='utf-8')
+                for line in path.read_text(encoding='utf-8').splitlines():
+                    if line not in old.splitlines():
+                        old += ('\n' if old and not old.endswith('\n') else '') + line + '\n'
+                destination.write_text(old, encoding='utf-8')
+            else:
+                shutil.copyfile(path, destination)
+        readme = workspace / 'README.md'
+        readme.write_text('> Atualização 10008 instalada pelo Actions. Para recompilar este jogo, use **Atualizar Empire TV e gerar APK**. O projeto completo é recuperado do ZIP anexado à Release.\n\n' + readme.read_text(encoding='utf-8'), encoding='utf-8')
+        paths = files + ['public', 'tests']
+        subprocess.run(['git', 'add', '--'] + paths, cwd=workspace, check=True)
+        changed = subprocess.run(['git', 'diff', '--cached', '--quiet'], cwd=workspace)
+        if changed.returncode == 0:
+            print('O site já contém esta atualização. Nenhum commit adicional foi necessário.')
+        elif changed.returncode == 1:
+            subprocess.run(['git', '-c', 'user.name=github-actions[bot]', '-c', 'user.email=41898282+github-actions[bot]@users.noreply.github.com',
+                            'commit', '-m', 'Atualiza Empire TV 10008 com os tutoriais de Vant'], cwd=workspace, check=True)
+            result = subprocess.run(['git', 'push', 'origin', 'HEAD:refs/heads/' + os.environ['GITHUB_REF_NAME']], cwd=workspace)
+            if result.returncode:
+                raise SystemExit('Os arquivos foram preparados, mas o GitHub não permitiu o push. Confira permissões do Actions, proteção da branch e se houve outro commit durante a execução. Nenhum push forçado foi feito.')
+            print('Arquivos do jogo e pastas public/tests enviados ao repositório.')
+        else:
+            raise SystemExit('Não foi possível conferir as alterações do repositório.')
+        summary = os.environ.get('GITHUB_STEP_SUMMARY')
+        if summary:
+            with open(summary, 'a', encoding='utf-8') as stream:
+                stream.write('Jogo web 10008 com os tutoriais instalado no repositório. Aguarde o deploy do Render ou use Manual Deploy → Deploy latest commit. A compilação do APK aparece nos próximos passos.\n')
+        PY
+    - name: Configurar Java 17
+      uses: actions/setup-java@v6
+      with:
+        distribution: temurin
+        java-version: '17'
+    - name: Configurar Android SDK
+      uses: android-actions/setup-android@v4
+      with:
+        packages: platform-tools platforms;android-36 build-tools;36.0.0
+    - name: Configurar Gradle
+      uses: gradle/actions/setup-gradle@v6
+      with:
+        gradle-version: 8.11.1
+    - name: Verificar lógica do jogo
+      shell: bash
+      run: |
+        cd "$BETA_PROJECT_DIR"
+        python3 build-app.py
+        node --check tests/script-check.cjs
+        node tests/test-game.cjs
+        node --test tests/mega-update.test.cjs
+        npm ci --prefix tests
+        node tests/test-startup.cjs
+        node --test tests/vant-tutorials.test.cjs
+    - name: Compilar APK
+      shell: bash
+      run: |
+        cd "$BETA_PROJECT_DIR"
+        gradle --no-daemon --stacktrace assembleDebug
+    - name: Habilitar aceleração do emulador
+      run: |
+        echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+        sudo udevadm control --reload-rules
+        sudo udevadm trigger --name-match=kvm
+    - name: Abrir o APK e verificar se continua funcionando
+      uses: reactivecircus/android-emulator-runner@v2
+      with:
+        api-level: 36
+        target: google_apis
+        arch: x86_64
+        profile: pixel_2
+        disable-animations: true
+        emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-save -camera-back none
+        script: python3 "$BETA_PROJECT_DIR/tests/test-apk-startup.py" "$BETA_PROJECT_DIR/app/build/outputs/apk/debug/app-debug.apk"
+          --output "$GITHUB_WORKSPACE/apk-startup-diagnostics"
+    - name: Guardar diagnóstico da abertura
+      if: always()
+      uses: actions/upload-artifact@v7
+      with:
+        name: Empire-TV-Diagnostico-Abertura
+        path: apk-startup-diagnostics/
+        if-no-files-found: ignore
+        compression-level: 0
+        retention-days: 3
+    - name: Preparar download
+      shell: bash
+      run: |
+        set -euo pipefail
+        mkdir -p apk-download
+        cp "$BETA_PROJECT_DIR/app/build/outputs/apk/debug/app-debug.apk" apk-download/Empire-TV-1.0.0.1-BETA.apk
+    - name: Disponibilizar APK Empire TV
+      uses: actions/upload-artifact@v7
+      with:
+        name: Empire-TV-10008-APK-TESTE
+        path: apk-download/Empire-TV-1.0.0.1-BETA.apk
+        if-no-files-found: error
+        compression-level: 0
+        retention-days: 7
+    - name: Gerar AAB de publicação com assinatura própria
+      if: inputs.make_play_bundle
+      shell: bash
+      env:
+        UPLOAD_KEYSTORE_BASE64: ${{ secrets.EMPIRE_UPLOAD_KEYSTORE_BASE64 }}
+        EMPIRE_SIGNING_STORE_PASSWORD: ${{ secrets.EMPIRE_UPLOAD_STORE_PASSWORD }}
+        EMPIRE_SIGNING_KEY_ALIAS: ${{ secrets.EMPIRE_UPLOAD_KEY_ALIAS }}
+        EMPIRE_SIGNING_KEY_PASSWORD: ${{ secrets.EMPIRE_UPLOAD_KEY_PASSWORD }}
+      run: |
+        set -euo pipefail
+        python3 -c 'import os,base64,pathlib; names=["UPLOAD_KEYSTORE_BASE64","EMPIRE_SIGNING_STORE_PASSWORD","EMPIRE_SIGNING_KEY_ALIAS","EMPIRE_SIGNING_KEY_PASSWORD"]; assert all(os.environ.get(n) for n in names), "Configure os quatro secrets da sua chave de upload."; pathlib.Path(os.environ["RUNNER_TEMP"],"empire-upload.jks").write_bytes(base64.b64decode(os.environ["UPLOAD_KEYSTORE_BASE64"],validate=True))'
+        export EMPIRE_SIGNING_STORE="$RUNNER_TEMP/empire-upload.jks"
+        cd "$BETA_PROJECT_DIR"
+        gradle --no-daemon -PplayBundle=true bundleRelease
+    - name: Guardar AAB assinado para Play Console
+      if: inputs.make_play_bundle
+      uses: actions/upload-artifact@v7
+      with:
+        name: Empire-TV-10008-PLAY-AAB
+        path: ${{ env.BETA_PROJECT_DIR }}/app/build/outputs/bundle/release/*.aab
+        if-no-files-found: error
+        compression-level: 0
