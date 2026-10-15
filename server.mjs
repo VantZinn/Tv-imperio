@@ -5,6 +5,7 @@ import {promisify} from 'node:util';
 import {readFileSync,mkdirSync} from 'node:fs';
 import {resolve,dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {serveWeb} from './static-web.mjs';
 import {reviewSchema,socialSchema,worldSchema,validateSchema} from './schemas.mjs';
 import {getAIConfig,requestAIJSON,nextQuotaReset} from './ai-provider.mjs';
 export {getAIConfig} from './ai-provider.mjs';
@@ -22,15 +23,31 @@ export function createStore(path){
  db.exec('CREATE TABLE IF NOT EXISTS device_accounts(device_id TEXT PRIMARY KEY,user_id TEXT UNIQUE NOT NULL REFERENCES users(id),secret_hash TEXT NOT NULL,created INTEGER NOT NULL);');
  return db;
 }
+export function normalizeBible(raw){
+ const b=raw&&typeof raw==='object'?raw:{};
+ const list=(v,max,fn)=>Array.isArray(v)?v.slice(0,max).map(fn):[];
+ return{characters:list(b.characters,16,c=>({name:limitText(c?.name,60),goal:limitText(c?.goal,300),relation:limitText(c?.relation,300),arc:limitText(c?.arc,300)})),
+ facts:list(b.facts,30,f=>({key:limitText(f?.key,80),value:limitText(f?.value,600)})),rules:list(b.rules,20,r=>limitText(r,600)),
+ promises:list(b.promises,20,p=>({text:limitText(p?.text,600),closed:p?.closed===true})),
+ timeline:list(b.timeline?.slice?.(-12),12,t=>({title:limitText(t?.title,80),week:finite(t?.week,1,100000),facts:list(t?.facts,15,f=>({key:limitText(f?.key,80),value:limitText(f?.value,600)})),consequence:limitText(t?.consequence,900),explanation:limitText(t?.explanation,900)}))};
+}
+export function verifyReviewEvidence(review,project){
+ const norm=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
+ const strings=v=>typeof v==='string'?[v]:v&&typeof v==='object'?Object.values(v).flatMap(strings):[];
+ const source=norm(strings(project).join(' '));
+ for(const risk of review.risks||[])for(const q of risk.evidence.matchAll(/[“"]([^”"]{12,})[”"]/g))if(!source.includes(norm(q[1])))throw failure(502,'A IA citou um trecho ausente do roteiro. O parecer não foi aplicado.',{code:'AI_INVALID_EVIDENCE',retryAfter:60});
+ return true;
+}
 export function normalizeProject(raw){
  if(!raw||typeof raw!=='object'||!['film','series'].includes(raw.kind)||!CATALOG.genres.includes(raw.genre)||!Number.isFinite(raw.duration)||raw.duration<10||raw.duration>240)throw failure(400,'Projeto inválido.');
  const story=raw.story||{},project={id:String(raw.id||'').slice(0,80),title:limitText(raw.title,80),kind:raw.kind,genre:raw.genre,duration:Math.round(raw.duration),concept:limitText(raw.concept,1800),story:{motivation:limitText(story.motivation,1800),conflict:limitText(story.conflict,1800),payoff:limitText(story.payoff,1800)},intent:limitText(raw.intent,1200),script:limitText(raw.script,3500)};
  if(!project.id||!project.title||project.concept.length<5)throw failure(400,'Título, premissa e identificador são necessários.');
+ project.bible=normalizeBible(raw.bible);
  return project;
 }
 export async function generateAIJSON(kind,payload,schema,options={}){
- const task=kind==='review'?'Analise intenção e ideias com profundidade, não conte palavras para dar nota. Ideias curtas podem ser excelentes; repetição, contradição e falta de decisões reais devem aparecer como evidências. Não force uma fórmula, gênero ou estilo. Diferencie originalidade, coerência, personagens, impacto e viabilidade de execução. Dê notas proporcionais, não premiando fama como qualidade narrativa. Para cada risco, cite evidência específica, efeito e uma mudança útil. Preveja produção de 1 a 6 semanas pelo escopo, duração e informação. Gere 6 a 12 comentários variados, sem afirmar que a obra inédita já tem audiência real, e sem inventar cenas ausentes. Respostas podem mencionar um comentário anterior pelo índice replyTo; use -1 sem resposta.':
- kind==='social'?'Crie novas conversas espontâneas sobre as obras já exibidas e sobre o mercado. Use a nota real do público para variar entusiasmo: quando há sucesso, escreva fãs eufóricos, indicações, memes leves, teoria, conversa entre amigos e divergências convincentes. Uma obra ruim ainda pode ter fãs, mas não faça elogios universais. Use jovens, adultos e senhores, nas três plataformas, com nomes fictícios. Se lastEpisode for null, não afirme ter assistido. Não repita textos anteriores. Se não houver estreia, comente novidades concorrentes. projectId e episodeId devem corresponder exatamente aos dados recebidos; use strings vazias para a conversa de mercado. replyTo referencia o índice de uma fala anterior no mesmo lote, ou -1.':
+ const task=kind==='review'?'Analise intenção e ideias com profundidade, não conte palavras para dar nota. Ideias curtas podem ser excelentes; repetição, contradição e falta de decisões reais devem aparecer como evidências. Não force uma fórmula, gênero ou estilo. Diferencie originalidade, coerência, personagens, impacto e viabilidade de execução. Dê notas proporcionais, não premiando fama como qualidade narrativa. Para cada risco, cite evidência específica, efeito e uma mudança útil. Se usar aspas na evidência, copie exatamente um trecho enviado. Considere a bíblia, a cronologia publicada e a explicação de transformações; não trate mudança preparada como erro automático. Preveja produção de 1 a 6 semanas pelo escopo, duração e informação. Gere 6 a 12 comentários variados, sem afirmar que a obra inédita já tem audiência real, e sem inventar cenas ausentes. Respostas podem mencionar um comentário anterior pelo índice replyTo; use -1 sem resposta.':
+ kind==='social'?'Crie novas conversas espontâneas sobre as obras já exibidas e sobre o mercado. Use a nota real do público para variar entusiasmo: quando há sucesso, escreva fãs eufóricos, indicações, memes leves, teoria, conversa entre amigos e divergências convincentes. Uma obra ruim ainda pode ter fãs, mas não faça elogios universais. Use jovens, adultos e senhores, nas três plataformas, com nomes fictícios. Se lastEpisode for null, não afirme ter assistido. Use somente publicMemory e lastEpisode para acontecimentos já vistos. knownCharacters registra nomes já publicados. Não revele fatos de um roteiro futuro. Não repita textos anteriores. Se não houver estreia, comente novidades concorrentes. projectId e episodeId devem corresponder exatamente aos dados recebidos; use strings vazias para a conversa de mercado. replyTo referencia o índice de uma fala anterior no mesmo lote, ou -1.':
  'Crie de 1 a 3 obras concorrentes inéditas e diversas. Desenvolva premissa, motivação, conflito, consequência e intenção coerentes. Não copie títulos nem enredos existentes ou já enviados. Os estúdios são fictícios. A qualidade varia de 45 a 96, respeitando o desenvolvimento, sem tornar todo concorrente perfeito. Escolha um distribuidor compatível dentre os fornecidos e cronograma de 1 a 6 semanas. Não use obras reais como se fossem criações novas.';
  return requestAIJSON(SYS+' '+task,payload,schema,options);
 }
@@ -81,7 +98,7 @@ export function createEngine({db,provider=generateAIJSON,aiEnabled=Boolean(getAI
   const cacheKey=digest(aiProvider+'|'+aiModel+'|'+user+'|'+campaign+'|'+JSON.stringify(project)),old=db.prepare('SELECT payload FROM cache WHERE key=? AND user_id=?').get(cacheKey,user);
   if(old)return{review:JSON.parse(old.payload),cached:true,provider:aiProvider,aiStatus:status(user)};
   if(inFlight.has(cacheKey))return{review:await inFlight.get(cacheKey),cached:true,provider:aiProvider,aiStatus:status(user)};
-  const task=(async()=>{const review=await generated('review',{project,context:body.context||{},knownGenres:CATALOG.genres},reviewSchema,user);db.prepare('INSERT OR REPLACE INTO cache(key,user_id,payload,created) VALUES(?,?,?,?)').run(cacheKey,user,JSON.stringify(review),clock());return review;})();
+  const task=(async()=>{const review=await generated('review',{project,context:body.context||{},knownGenres:CATALOG.genres},reviewSchema,user);verifyReviewEvidence(review,project);db.prepare('INSERT OR REPLACE INTO cache(key,user_id,payload,created) VALUES(?,?,?,?)').run(cacheKey,user,JSON.stringify(review),clock());return review;})();
   inFlight.set(cacheKey,task);try{return{review:await task,cached:false,provider:aiProvider,aiStatus:status(user)};}finally{inFlight.delete(cacheKey);}
  }
  function insertPosts(owner,campaign,comments,context){
@@ -100,7 +117,7 @@ export function createEngine({db,provider=generateAIJSON,aiEnabled=Boolean(getAI
   return{campaignId:body.campaignId,studio:limitText(body.studio,60),week:body.week,difficulty:['easy','medium','hard','director'].includes(body.difficulty)?body.difficulty:'medium',projects:body.projects.map(sh=>{
     if(!sh||typeof sh.id==='object')throw failure(400,'Identificador de obra inválido.');
     const ep=sh.lastEpisode;
-    return{id:String(sh.id).slice(0,80),title:limitText(sh.title,80),genre:CATALOG.genres.includes(sh.genre)?sh.genre:'Drama',concept:limitText(sh.concept,1800),story:{motivation:limitText(sh.story?.motivation,1800),conflict:limitText(sh.story?.conflict,1800),payoff:limitText(sh.story?.payoff,1800)},intent:limitText(sh.intent,1200),status:limitText(sh.status,30),fame:finite(sh.fame,0,1e10),lastEpisode:ep?{id:String(ep.id).slice(0,80),title:limitText(ep.title,80),number:finite(ep.number,1,10000),season:finite(ep.season,1,1000),quality:finite(ep.quality,0,100),critics:finite(ep.critics,0,100),public:finite(ep.public,0,100),views:finite(ep.views,0,1e10),likes:finite(ep.likes,0,1e10),favorites:finite(ep.favorites,0,1e10),actor:limitText(ep.actor,60),script:limitText(ep.script,3500),intent:limitText(ep.intent,1200),credits:Array.isArray(ep.credits)?ep.credits.slice(0,6).map(c=>({role:limitText(c.role,25),name:limitText(c.name,60),fame:finite(c.fame,0,100)})):[]}:null};
+    return{id:String(sh.id).slice(0,80),title:limitText(sh.title,80),genre:CATALOG.genres.includes(sh.genre)?sh.genre:'Drama',concept:limitText(sh.concept,1800),story:{motivation:limitText(sh.story?.motivation,1800),conflict:limitText(sh.story?.conflict,1800),payoff:limitText(sh.story?.payoff,1800)},intent:limitText(sh.intent,1200),status:limitText(sh.status,30),fame:finite(sh.fame,0,1e10),publicMemory:normalizeBible({timeline:sh.publicMemory}).timeline,knownCharacters:Array.isArray(sh.knownCharacters)?sh.knownCharacters.slice(0,16).map(c=>({name:limitText(c.name,60)})):[],lastEpisode:ep?{id:String(ep.id).slice(0,80),title:limitText(ep.title,80),number:finite(ep.number,1,10000),season:finite(ep.season,1,1000),quality:finite(ep.quality,0,100),critics:finite(ep.critics,0,100),public:finite(ep.public,0,100),views:finite(ep.views,0,1e10),likes:finite(ep.likes,0,1e10),favorites:finite(ep.favorites,0,1e10),actor:limitText(ep.actor,60),script:limitText(ep.script,3500),intent:limitText(ep.intent,1200),credits:Array.isArray(ep.credits)?ep.credits.slice(0,6).map(c=>({role:limitText(c.role,25),name:limitText(c.name,60),fame:finite(c.fame,0,100)})):[]}:null};
    }),recentTexts:Array.isArray(body.recentTexts)?body.recentTexts.slice(0,45).map(t=>limitText(t,2400)):[]};
  }
  function sync(user,body){
@@ -155,14 +172,16 @@ export function createApp(options={}){
  const rate=new Map();let workerTimer;
  function session(user){const token=randomBytes(32).toString('hex'),expiresAt=Date.now()+7*86400000;db.prepare('INSERT INTO sessions(token,user_id,expires) VALUES(?,?,?)').run(digest(token),user,expiresAt);return{token,expiresAt,aiAvailable:engine.aiEnabled,aiStatus:engine.status(user),aiProvider:engine.aiProvider,aiModel:engine.aiModel,paymentsEnabled:false};}
  function throttle(key,max=90){const now=Date.now(),bucket=rate.get(key)||{count:0,reset:now+60000};if(now>=bucket.reset){bucket.count=0;bucket.reset=now+60000;}bucket.count++;rate.set(key,bucket);if(rate.size>10000)for(const[k,v]of rate)if(v.reset<now)rate.delete(k);if(bucket.count>max)throw failure(429,'Muitas solicitações. Aguarde um minuto.');}
- async function readBody(req){let bytes=0,chunks=[];for await(const c of req){bytes+=c.length;if(bytes>180000)throw failure(413,'Conteúdo muito grande.');chunks.push(c);}let value;try{value=JSON.parse(Buffer.concat(chunks).toString('utf8')||'{}');}catch{throw failure(400,'JSON inválido.');}if(!value||typeof value!=='object'||Array.isArray(value))throw failure(400,'JSON inválido.');return value;}
+ async function readBody(req){let bytes=0,chunks=[];for await(const c of req){bytes+=c.length;if(bytes>600000)throw failure(413,'Conteúdo muito grande.');chunks.push(c);}let value;try{value=JSON.parse(Buffer.concat(chunks).toString('utf8')||'{}');}catch{throw failure(400,'JSON inválido.');}if(!value||typeof value!=='object'||Array.isArray(value))throw failure(400,'JSON inválido.');return value;}
  function auth(req){const token=(req.headers.authorization||'').replace(/^Bearer /,'');if(token.length!==64)throw failure(401,'Entre novamente no universo.');const row=db.prepare('SELECT user_id FROM sessions WHERE token=? AND expires>?').get(digest(token),Date.now());if(!row)throw failure(401,'Sessão expirada. Entre novamente no universo.');return row.user_id;}
  const server=http.createServer(async(req,res)=>{
   const origin=req.headers.origin,send=(status,data)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(data));};
   try{
-   if(origin&&!origins.has(origin))throw failure(403,'Origem não autorizada.');
+   const sameOrigin=origin===((req.socket.encrypted||req.headers['x-forwarded-proto']==='https')?'https:':'http:')+'//'+req.headers.host;
+   if(origin&&!origins.has(origin)&&!sameOrigin)throw failure(403,'Origem não autorizada.');
    if(origin){res.setHeader('Access-Control-Allow-Origin',origin);res.setHeader('Vary','Origin');res.setHeader('Access-Control-Allow-Headers','Content-Type, Authorization');res.setHeader('Access-Control-Allow-Methods','GET, POST, OPTIONS');res.setHeader('Access-Control-Expose-Headers','Retry-After');}
    if(req.method==='OPTIONS'){res.writeHead(204);res.end();return;}
+   if(serveWeb(req,res,options.publicDir||process.env.PUBLIC_DIR||resolve(HERE,'public')))return;
    const route=new URL(req.url,'http://localhost').pathname,ip=req.socket.remoteAddress||'unknown';throttle(ip);
    if(req.method==='GET'&&route==='/health'){const state=engine.status();send(200,{game:'Empire TV',version:'1.0.0.1 BETA',aiAvailable:engine.aiEnabled,aiStatus:{configured:state.configured,available:state.available,state:state.state,code:state.code,message:state.message,retryAt:state.retryAt},aiProvider:engine.aiProvider,aiModel:engine.aiModel,paymentsEnabled:false});return;}
    if(req.method!=='POST')throw failure(404,'Rota não encontrada.');

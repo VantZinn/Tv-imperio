@@ -1,0 +1,51 @@
+EMPIRE TV — V&D DIGITAL
+1.0.0.1 BETA • revisão 10008 • 46 tutoriais de Vant dentro do jogo
+
+COMO TROCAR OS ARQUIVOS DO SEU GITHUB
+
+1. Extraia Empire_TV_10008_Atualizacao_GitHub.zip no seu aparelho.
+2. Envie O CONTEÚDO extraído para a raiz de VantZinn/Tv-imperio.
+   Substitua os arquivos com o mesmo nome e mantenha as pastas.
+   Não envie só este ZIP: o Render precisa dos arquivos extraídos.
+3. Inclua public/, empire-project/ e .github/workflows/gerar-apk.yml.
+   O arquivo do workflow substitui o anterior. Se seu gerenciador ocultar
+   .github, ative a opção de mostrar arquivos ocultos.
+4. Após o commit, aguarde a publicação no Render. Se não houver publicação
+   automática, use Manual Deploy > Deploy latest commit no seu serviço.
+   O Dockerfile está pronto e npm start continua sendo o comando de início.
+5. Para gerar um novo APK: GitHub > Actions > Gerar APK Empire TV > Run workflow.
+   Deixe project_url vazio e make_play_bundle desmarcado para o APK de teste.
+   O workflow monta o projeto atualizado automaticamente e verifica cada parte.
+   O ZIP antigo na raiz não é utilizado quando empire-project/ está presente.
+
+ONDE OS TUTORIAIS APARECEM
+
+Em cada página: Vant: como usar esta página.
+Todos juntos: Configurações > Tutoriais.
+São 46 assuntos, com quatro passos por assunto, busca, filtros e progresso
+salvo. O jogador pode pausar e retomar. Os tutoriais explicam finalidade,
+uso, custos, limites e como conferir o resultado, sem gastar os recursos.
+As missões iniciais continuam sendo necessárias para concluir a orientação.
+
+O QUE ESTÁ INCLUÍDO
+
+public/ — jogo web completo, tutoriais já incorporados ao index.html,
+          análise local, músicas, animações e recursos visuais.
+Arquivos .mjs, package.json e Dockerfile — servidor compatível com o jogo.
+empire-project/ — projeto Android completo dividido para facilitar o envio.
+                  Não renomeie nem edite essas partes.
+.github/workflows/gerar-apk.yml — compilação do APK da revisão 10008.
+
+Os tutoriais já estão integrados no projeto Android e na página web.
+Não é necessário copiar código ou instalar um tutorial separado.
+Mantenha a chave de IA e outras variáveis privadas no painel do Render.
+Este pacote não altera os dados salvos no navegador por conta própria.
+Você pode exportar seu backup no jogo antes de testar a nova versão.
+
+Verificações feitas: 46 tutoriais em retrato e paisagem, navegação e recursos
+do jogador preservados; conteúdo web e Android iguais aos arquivos testados;
+partes do projeto conferidas por SHA-256 e pacote conferido por CRC.
+A publicação no GitHub/Render é feita por você. A compilação na sua conta e
+o funcionamento no seu aparelho devem ser conferidos após a substituição.
+
+© V&D Digital. Todos os direitos reservados.

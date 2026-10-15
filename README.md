@@ -1,3 +1,30 @@
+# Empire TV — jogo com tutoriais de Vant
+
+V&D Digital · 1.0.0.1 BETA · revisão 10008.
+
+Os **46 tutoriais estão dentro do jogo**, com quatro passos por assunto.
+Use “Vant: como usar esta página” ou **Configurações → Tutoriais**.
+Há busca, filtros, pausa, revisão e progresso salvo. Ler as orientações não
+gasta dinheiro, MF ou impulsos da campanha.
+
+Extraia o pacote de atualização e envie seu conteúdo para a raiz do repositório,
+substituindo os arquivos existentes e preservando as pastas. Inclua `public/`,
+`empire-project/` e `.github/workflows/gerar-apk.yml`. Não envie apenas o ZIP.
+Veja os passos curtos em **LEIA-ME-GITHUB.txt**.
+
+O site completo está em `public/` e é servido por Node 24 com `npm start`.
+O Dockerfile inclui os recursos do jogo; `.dockerignore` mantém as partes do
+projeto Android fora da imagem do servidor. As configurações privadas continuam
+no painel do serviço. Após enviar, aguarde o deploy do Render.
+
+Para gerar o APK, abra **Actions → Gerar APK Empire TV → Run workflow**, deixando
+`project_url` vazio. O workflow monta e verifica o projeto em `empire-project/`,
+usando a revisão 10008 em lugar do ZIP antigo que permaneça na raiz. Cada parte
+tem menos de 25 MiB. A opção de AAB exige sua chave de upload configurada.
+
+Os tutoriais e sua navegação foram verificados em retrato e paisagem. A publicação,
+a compilação na sua conta e o teste no aparelho ainda devem ser conferidos.
+
 # Empire TV — servidor com IA gratuita
 
 Node.js 24, SQLite e **Gemini** como provedor padrão. Sem dependências npm externas. O Gemini 3.5 Flash-Lite tem Free tier; mantenha seu projeto no nível gratuito, sem cobrança ativada. Cotas e disponibilidade são definidas pelo Google.
@@ -11,7 +38,7 @@ npm start
 
 Na hospedagem, configure AI_PROVIDER=gemini, GEMINI_API_KEY e AI_MODEL=gemini-3.5-flash-lite pelo painel de segredos. A chave nunca vai ao APK. O guia **ATIVAR-IA.md** explica criação da chave, hospedagem, conexão e limites.
 
-O APK atualizado (versionCode 10006) conecta cada perfil automaticamente a https://tv-imperio.onrender.com, usando uma identificação aleatória própria e renovando sessões quando necessário. O responsável configura a chave somente neste servidor. GET /health informa configuração e pausas conhecidas; não confirma uma geração real. Os APKs anteriores continuam compatíveis com o login manual.
+O APK atualizado (versionCode 10008) conecta cada perfil automaticamente a https://tv-imperio.onrender.com, usando uma identificação aleatória própria e renovando sessões quando necessário. O responsável configura a chave somente neste servidor. GET /health informa configuração e pausas conhecidas; não confirma uma geração real. Os APKs anteriores continuam compatíveis com o login manual.
 
 | Rota | Uso |
 |---|---|
@@ -37,6 +64,6 @@ Use HTTPS e armazenamento persistente. O Render Free permite experimentar, mas s
 
 OpenAI permanece opcional para instalações anteriores, exclusivamente com AI_PROVIDER=openai explícito. Não há fallback automático para uma API paga. Nessa instalação opcional, quando as cotas não estão configuradas no Environment, os padrões anteriores 144/48 são preservados; zero explícito também desativa essas cotas.
 
-Os 32 testes do servidor verificam respostas simuladas, isolamento, identificação automática, recuperação, ausência de limite interno, cotas opcionais, cache, erros, pausas e persistência. O acesso real ao Gemini deve ser confirmado depois da publicação. Consulte CORRIGIR-IA.md para aplicar ao Render.
+Os 35 testes do servidor verificam respostas simuladas, isolamento, identificação automática, recuperação, ausência de limite interno, cotas opcionais, cache, erros, pausas e persistência. O acesso real ao Gemini deve ser confirmado depois da publicação. Consulte CORRIGIR-IA.md para aplicar ao Render.
 
 © V&D Digital. Todos os direitos reservados.

@@ -1,0 +1,29 @@
+{
+  "revision": 10008,
+  "tutorialTopics": 46,
+  "stepsPerTopic": 4,
+  "webHtmlSha256": "44dad79dc330579199bb07bfd4a6a4f8f24b4a38a4602b7d2db3f71aa9554d67",
+  "nativeTutorialJsSha256": "85723ac01f552fb03388ac11d19c047b864705d14c940690f51ee2168d8be138",
+  "tutorialJsPresentInBothGames": true,
+  "nativeProjectSha256": "f8a73faf4b4494d5f720149ef1383c2da8cac99c3666d75d7c64588644631479",
+  "nativeProjectParts": 18,
+  "maxPartBytes": 20971520,
+  "browserTutorialChecks": "184 passos em retrato e 184 em paisagem na versão integrada",
+  "publishedToGithub": false,
+  "publishedToRender": false,
+  "physicalDeviceTested": false,
+  "deliveryChecks": {
+    "workflowYamlValid": true,
+    "actualWorkflowLocationStepPassed": true,
+    "oldRootArchiveIgnored": true,
+    "sourceArchiveRoundTripSha256Verified": true,
+    "selectedGameRevision": 10008,
+    "assemblyFailuresPreserveOutput": [
+      "missing",
+      "corrupted",
+      "invalid-path"
+    ],
+    "apkCompiledThisTurn": false,
+    "deployed": false
+  }
+}
