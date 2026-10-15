@@ -1,3 +1,5 @@
+> Atualização 10008 instalada pelo Actions. Para recompilar este jogo, use **Atualizar Empire TV e gerar APK**. O projeto completo é recuperado do ZIP anexado à Release.
+
 # Empire TV — jogo com tutoriais de Vant
 
 V&D Digital · 1.0.0.1 BETA · revisão 10008.

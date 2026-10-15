@@ -1,0 +1,1 @@
+{"id": "/", "name": "Empire TV", "short_name": "Empire TV", "start_url": "/", "scope": "/", "display": "fullscreen", "orientation": "any", "background_color": "#0b1720", "theme_color": "#0b1720", "icons": [{"src": "art/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"}, {"src": "art/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"}]}

@@ -1,0 +1,85 @@
+{
+  "version": 1,
+  "credit": "Composições originais para Empire TV · V&D Digital",
+  "tracks": [
+    {
+      "id": "studio",
+      "title": "Luzes do estúdio",
+      "seconds": 190,
+      "bpm": 86,
+      "format": "MP3 estéreo 128 kbps · versão web",
+      "bytes": 3040941,
+      "sha256": "11bc3cdb305d73a27c0201b79ce7f1293cc953181e68dda57f9de723943fce70"
+    },
+    {
+      "id": "writing",
+      "title": "Entre linhas",
+      "seconds": 190,
+      "bpm": 72,
+      "format": "MP3 estéreo 128 kbps · versão web",
+      "bytes": 3040941,
+      "sha256": "58e0b0f8fa0f4cc4651f5584c556959a9f9693815ad539e2701fac1661296772"
+    },
+    {
+      "id": "filming",
+      "title": "Em movimento",
+      "seconds": 190,
+      "bpm": 108,
+      "format": "MP3 estéreo 128 kbps · versão web",
+      "bytes": 3040941,
+      "sha256": "0dedd1fb3e589126ff338da9832e65ec25508b1e840219e3eb6ccb6b82b7035f"
+    },
+    {
+      "id": "discovery",
+      "title": "Uma nova leitura",
+      "seconds": 190,
+      "bpm": 78,
+      "format": "MP3 estéreo 128 kbps · versão web",
+      "bytes": 3040941,
+      "sha256": "54dbdd06ff9c02d3b3f40b9bce9443aedf7396130b0d38235153790384fb2c29"
+    },
+    {
+      "id": "strategy",
+      "title": "Horizonte aberto",
+      "seconds": 190,
+      "bpm": 96,
+      "format": "MP3 estéreo 128 kbps · versão web",
+      "bytes": 3040941,
+      "sha256": "a7dbd1bbf813682e1b8f00629bef45e3000937cb9f006ee67badf68c9e6878ac"
+    },
+    {
+      "id": "conversation",
+      "title": "Depois da sessão",
+      "seconds": 190,
+      "bpm": 91,
+      "format": "MP3 estéreo 128 kbps · versão web",
+      "bytes": 3040941,
+      "sha256": "a1abedc1e4b6381091321bdc9b33f02f7a3a8ae608d738f383a87deafd4c4972"
+    },
+    {
+      "id": "gala",
+      "title": "Coroa de luz",
+      "seconds": 190,
+      "bpm": 102,
+      "format": "MP3 estéreo 128 kbps · versão web",
+      "bytes": 3040941,
+      "sha256": "e1a391253867506165b15c3c2b4c2c61ef849052f8590e58919de0bff92fef38"
+    },
+    {
+      "id": "night",
+      "title": "Última luz",
+      "seconds": 190,
+      "bpm": 64,
+      "format": "MP3 estéreo 128 kbps · versão web",
+      "bytes": 3040941,
+      "sha256": "9e92a85e393dc21d187f95cf9667f15663a35dc6a0e477079995017986f5ae28"
+    }
+  ],
+  "effects": [
+    "tap",
+    "reward",
+    "accept",
+    "error",
+    "page"
+  ]
+}

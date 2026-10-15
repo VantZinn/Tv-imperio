@@ -1,0 +1,11 @@
+.git
+.github
+empire-project
+Empire_TV_1.0.0.1_BETA_Projeto_APK.zip
+*.apk
+*.aab
+*.zip
+.env
+data
+node_modules
+tests
